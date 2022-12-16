@@ -22,11 +22,12 @@ type LoginCommand struct {
 
 	Handlers map[string]LoginHandler
 
-	flagMethod    string
-	flagPath      string
-	flagNoStore   bool
-	flagNoPrint   bool
-	flagTokenOnly bool
+	flagMethod      string
+	flagPath        string
+	flagNoStore     bool
+	flagNoPrint     bool
+	flagTokenOnly   bool
+	flagBearerToken string
 
 	testStdin io.Reader // for tests
 }
@@ -128,6 +129,13 @@ func (c *LoginCommand) Flags() *FlagSets {
 			"values will have no affect.",
 	})
 
+	f.StringVar(&StringVar{
+		Name:    "bearer-token",
+		Target:  &c.flagBearerToken,
+		Default: "",
+		Usage:   "IAP bearer token.",
+	})
+
 	return set
 }
 
@@ -213,6 +221,16 @@ func (c *LoginCommand) Run(args []string) int {
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 2
+	}
+
+	// Add bearer token headers
+	if c.flagBearerToken != "" {
+		headers := client.Headers()
+		if headers == nil {
+			headers = make(map[string][]string)
+		}
+		headers["Proxy-Authorization"] = []string{"Bearer " + c.flagBearerToken}
+		client.SetHeaders(headers)
 	}
 
 	// Evolving token formats across Vault versions have caused issues during CLI logins. Unless

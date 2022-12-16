@@ -17,8 +17,9 @@ var (
 type KVGetCommand struct {
 	*BaseCommand
 
-	flagVersion int
-	flagMount   string
+	flagVersion     int
+	flagMount       string
+	flagBearerToken string
 }
 
 func (c *KVGetCommand) Synopsis() string {
@@ -35,10 +36,10 @@ Usage: vault kv get [options] KEY
 
       $ vault kv get -mount=secret foo
 
-  The deprecated path-like syntax can also be used, but this should be avoided 
-  for KV v2, as the fact that it is not actually the full API path to 
-  the secret (secret/data/foo) can cause confusion: 
-  
+  The deprecated path-like syntax can also be used, but this should be avoided
+  for KV v2, as the fact that it is not actually the full API path to
+  the secret (secret/data/foo) can cause confusion:
+
       $ vault kv get secret/foo
 
   To view the given key name at a specific version in time, specify the "-version"
@@ -69,11 +70,18 @@ func (c *KVGetCommand) Flags() *FlagSets {
 		Name:    "mount",
 		Target:  &c.flagMount,
 		Default: "", // no default, because the handling of the next arg is determined by whether this flag has a value
-		Usage: `Specifies the path where the KV backend is mounted. If specified, 
-		the next argument will be interpreted as the secret path. If this flag is 
-		not specified, the next argument will be interpreted as the combined mount 
-		path and secret path, with /data/ automatically appended between KV 
+		Usage: `Specifies the path where the KV backend is mounted. If specified,
+		the next argument will be interpreted as the secret path. If this flag is
+		not specified, the next argument will be interpreted as the combined mount
+		path and secret path, with /data/ automatically appended between KV
 		v2 secrets.`,
+	})
+
+	f.StringVar(&StringVar{
+		Name:    "bearer-token",
+		Target:  &c.flagBearerToken,
+		Default: "",
+		Usage:   "IAP bearer token.",
 	})
 
 	return set
@@ -109,6 +117,16 @@ func (c *KVGetCommand) Run(args []string) int {
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 2
+	}
+
+	// Add bearer token headers
+	if c.flagBearerToken != "" {
+		headers := client.Headers()
+		if headers == nil {
+			headers = make(map[string][]string)
+		}
+		headers["Authorization"] = []string{"Bearer " + c.flagBearerToken}
+		client.SetHeaders(headers)
 	}
 
 	// If true, we're working with "-mount=secret foo" syntax.

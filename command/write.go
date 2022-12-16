@@ -27,7 +27,8 @@ type MFAMethodInfo struct {
 type WriteCommand struct {
 	*BaseCommand
 
-	flagForce bool
+	flagForce       bool
+	flagBearerToken string
 
 	testStdin io.Reader // for tests
 }
@@ -87,6 +88,13 @@ func (c *WriteCommand) Flags() *FlagSets {
 			"allows writing to keys that do not need or expect data.",
 	})
 
+	f.StringVar(&StringVar{
+		Name:    "bearer-token",
+		Target:  &c.flagBearerToken,
+		Default: "",
+		Usage:   "IAP bearer token.",
+	})
+
 	return set
 }
 
@@ -136,6 +144,16 @@ func (c *WriteCommand) Run(args []string) int {
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 2
+	}
+
+	// Add bearer token headers
+	if c.flagBearerToken != "" {
+		headers := client.Headers()
+		if headers == nil {
+			headers = make(map[string][]string)
+		}
+		headers["Proxy-Authorization"] = []string{"Bearer " + c.flagBearerToken}
+		client.SetHeaders(headers)
 	}
 
 	secret, err := client.Logical().Write(path, data)

@@ -38,6 +38,7 @@ type AuthEnableCommand struct {
 	flagTokenType                 string
 	flagVersion                   int
 	flagPluginVersion             string
+	flagBearerToken               string
 }
 
 func (c *AuthEnableCommand) Synopsis() string {
@@ -207,6 +208,13 @@ func (c *AuthEnableCommand) Flags() *FlagSets {
 		Usage:   "Select the semantic version of the plugin to enable.",
 	})
 
+	f.StringVar(&StringVar{
+		Name:    "bearer-token",
+		Target:  &c.flagBearerToken,
+		Default: "",
+		Usage:   "IAP bearer token.",
+	})
+
 	return set
 }
 
@@ -240,6 +248,16 @@ func (c *AuthEnableCommand) Run(args []string) int {
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 2
+	}
+
+	// Add bearer token headers
+	if c.flagBearerToken != "" {
+		headers := client.Headers()
+		if headers == nil {
+			headers = make(map[string][]string)
+		}
+		headers["Proxy-Authorization"] = []string{"Bearer " + c.flagBearerToken}
+		client.SetHeaders(headers)
 	}
 
 	authType := strings.TrimSpace(args[0])

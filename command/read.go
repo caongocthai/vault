@@ -18,6 +18,8 @@ var (
 type ReadCommand struct {
 	*BaseCommand
 
+	flagBearerToken string
+
 	testStdin io.Reader // for tests
 }
 
@@ -45,7 +47,18 @@ Usage: vault read [options] PATH
 }
 
 func (c *ReadCommand) Flags() *FlagSets {
-	return c.flagSet(FlagSetHTTP | FlagSetOutputField | FlagSetOutputFormat)
+	set := c.flagSet(FlagSetHTTP | FlagSetOutputField | FlagSetOutputFormat)
+
+	f := set.NewFlagSet("Command Options")
+
+	f.StringVar(&StringVar{
+		Name:    "bearer-token",
+		Target:  &c.flagBearerToken,
+		Default: "",
+		Usage:   "IAP bearer token.",
+	})
+
+	return set
 }
 
 func (c *ReadCommand) AutocompleteArgs() complete.Predictor {
@@ -75,6 +88,16 @@ func (c *ReadCommand) Run(args []string) int {
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 2
+	}
+
+	// Add bearer token headers
+	if c.flagBearerToken != "" {
+		headers := client.Headers()
+		if headers == nil {
+			headers = make(map[string][]string)
+		}
+		headers["Proxy-Authorization"] = []string{"Bearer " + c.flagBearerToken}
+		client.SetHeaders(headers)
 	}
 
 	// Pull our fake stdin if needed
